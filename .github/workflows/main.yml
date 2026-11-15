@@ -1,16 +1,65 @@
 name: Build APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: JarvisApp
     steps:
       - uses: actions/checkout@v4
-      - run: unzip -q JarvisApp.zip
+
       - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version: 17}
+        with:
+          distribution: temurin
+          java-version: 17
+
       - uses: gradle/actions/setup-gradle@v4
-        with: {gradle-version: 8.7}
-      - run: gradle -p JarvisApp assembleDebug --no-daemon
+        with:
+          gradle-version: 8.7
+
+      - name: Descargar motor de voz sherpa-onnx
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -u
+          REPO="k2-fsa/sherpa-onnx"
+          mkdir -p app/libs
+          tags=$(gh release list --repo "$REPO" --limit 40 --json tagName -q '.[].tagName')
+          for tag in $tags; do
+            name=$(gh release view "$tag" --repo "$REPO" --json assets -q '.assets[].name' 2>/dev/null | grep -E '\.aar$' | head -1 || true)
+            if [ -n "$name" ]; then
+              echo "Usando AAR $name de $tag"
+              gh release download "$tag" --repo "$REPO" -p "$name" -O app/libs/sherpa-onnx.aar --clobber && exit 0
+            fi
+          done
+          for tag in $tags; do
+            name=$(gh release view "$tag" --repo "$REPO" --json assets -q '.assets[].name' 2>/dev/null | grep -E '^sherpa-onnx-v[0-9.]+-android\.tar\.bz2$' | head -1 || true)
+            if [ -n "$name" ]; then
+              echo "Usando paquete $name de $tag"
+              gh release download "$tag" --repo "$REPO" -p "$name" -O sherpa-android.tar.bz2 --clobber || continue
+              mkdir -p sherpa-tmp && tar xjf sherpa-android.tar.bz2 -C sherpa-tmp
+              jni=$(find sherpa-tmp -type d -name jniLibs | head -1)
+              [ -z "$jni" ] && continue
+              mkdir -p app/src/main/jniLibs && cp -r "$jni"/* app/src/main/jniLibs/
+              mkdir -p app/src/main/java/com/k2fsa/sherpa/onnx
+              curl -fL -o app/src/main/java/com/k2fsa/sherpa/onnx/Tts.kt \
+                "https://raw.githubusercontent.com/$REPO/$tag/sherpa-onnx/kotlin-api/Tts.kt" || continue
+              echo "Listo: jniLibs + Tts.kt de $tag"
+              exit 0
+            fi
+          done
+          echo "::error::No pude conseguir sherpa-onnx"
+          exit 1
+
+      - name: Compilar APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
           name: Jarvis-apk
