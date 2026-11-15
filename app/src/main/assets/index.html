@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050a14">
+<title>Jarvis</title>
+<style>
+:root{
+  --bg:#050a14; --panel:#0c1526; --line:#1b2c47;
+  --ink:#dce9f7; --dim:#7f93ad; --arc:#4fd1ff; --warm:#ffb347; --err:#ff6b6b;
+  --c:var(--arc);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:radial-gradient(120% 70% at 50% 38%,#0b1a33 0%,var(--bg) 70%);
+  color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px}
+h1{font-size:15px;font-weight:600;letter-spacing:.32em;margin:0;color:var(--dim)}
+#gear{background:none;border:0;color:var(--dim);padding:8px;border-radius:50%}
+#gear svg{width:22px;height:22px;display:block}
+
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;padding:0 20px}
+#orbWrap{width:min(62vw,34vh,280px);aspect-ratio:1;margin-bottom:18px}
+#orb{display:block;width:100%;height:100%;border:0;padding:0;background:none;cursor:pointer;
+  filter:drop-shadow(0 0 22px color-mix(in srgb,var(--c) 38%,transparent));transition:opacity .3s}
+#face{width:100%;height:100%;overflow:visible;animation:float 4s ease-in-out infinite}
+.head,.ear{fill:#0d1c34;stroke:var(--c);stroke-width:3;transition:stroke .3s}
+.screen{fill:#050e1c}
+.stem{stroke:var(--c);stroke-width:3;stroke-linecap:round}
+.bulb,.eye,.talk{fill:var(--c)}
+.spark{fill:#fff;opacity:.9}
+.cheek{fill:var(--c);opacity:.22}
+.mouth{fill:none;stroke:var(--c);stroke-width:5;stroke-linecap:round;transform-box:fill-box;transform-origin:center}
+.talk{opacity:0;transform-box:fill-box;transform-origin:center}
+.eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.2s infinite}
+
+body[data-s="idle"] #orb{opacity:.65}
+body[data-s="idle"] .eyes{animation:none;transform:scaleY(.25)}
+body[data-s="idle"] .bulb{opacity:.35}
+body[data-s="idle"] .mouth{d:path("M88 131 Q100 134 112 131")}
+
+body[data-s="listening"]{--c:var(--arc)}
+body[data-s="listening"] .gaze{animation:look 5s ease-in-out infinite}
+body[data-s="listening"] .ear{animation:ear 1.4s ease-in-out infinite}
+
+body[data-s="thinking"]{--c:var(--warm)}
+body[data-s="thinking"] .gaze{animation:scan 1.8s ease-in-out infinite}
+body[data-s="thinking"] .bulb{animation:bulb .6s steps(2) infinite}
+body[data-s="thinking"] .mouth{d:path("M88 131 Q94 126 100 131 T112 131")}
+
+body[data-s="speaking"] .mouth{opacity:0}
+body[data-s="speaking"] .talk{opacity:1;animation:talk .38s ease-in-out infinite}
+body[data-s="speaking"] .ear{animation:ear .8s ease-in-out infinite}
+
+body[data-s="error"]{--c:var(--err)}
+body[data-s="error"] .eyes{animation:none;transform:scaleY(.6)}
+body[data-s="error"] .mouth{transform:scaleY(-1)}
+
+@keyframes float{50%{transform:translateY(-6px)}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+@keyframes look{0%,100%{transform:translateX(0)}30%{transform:translateX(6px)}65%{transform:translateX(-6px)}}
+@keyframes scan{0%,100%{transform:translate(-8px,-7px)}50%{transform:translate(8px,-7px)}}
+@keyframes bulb{50%{opacity:.2}}
+@keyframes talk{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1.4)}}
+@keyframes ear{50%{fill:color-mix(in srgb,var(--c) 45%,#0d1c34)}}
+@media (prefers-reduced-motion:reduce){#face,.eyes,.gaze,.ear,.bulb,.talk{animation:none!important}}
+
+
+.talkWrap{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 2px}
+#talk{width:88px;height:88px;border:0;background:none;padding:0;cursor:pointer;color:var(--c);
+  filter:drop-shadow(0 0 12px color-mix(in srgb,var(--c) 45%,transparent));transition:transform .15s}
+#talk:active{transform:scale(.94)}
+#talk svg{width:100%;height:100%;display:block;overflow:visible}
+.t-halo{fill:none;stroke:currentColor;stroke-width:1.2;opacity:.35}
+.t-ticks{fill:none;stroke:currentColor;stroke-width:3;stroke-dasharray:3 6.5;opacity:.7;transform-origin:50px 50px}
+.t-seg{fill:none;stroke:currentColor;stroke-width:7;stroke-dasharray:16 7.56;transform-origin:50px 50px}
+.t-plate{fill:#07142a;stroke:currentColor;stroke-width:2}
+.t-core{fill:currentColor;transform-origin:50px 50px;opacity:.55}
+.t-tri{fill:none;stroke:#07142a;stroke-width:2.5;stroke-linejoin:round;opacity:.8}
+#talkLbl{font-size:13px;letter-spacing:.14em;color:var(--c)}
+body:not([data-s="idle"]) .t-seg{animation:spin 9s linear infinite}
+body:not([data-s="idle"]) .t-ticks{animation:spin 14s linear infinite reverse}
+body:not([data-s="idle"]) .t-core{animation:core 1.4s ease-in-out infinite;opacity:1}
+body[data-s="idle"] .t-seg,body[data-s="idle"] .t-ticks{animation:none}
+@keyframes core{50%{transform:scale(.8);opacity:.7}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.t-seg,.t-ticks,.t-core{animation:none!important}}
+
+#dim{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#2f4258;font-size:14px;text-align:center;padding:24px}
+#dim[hidden]{display:none}
+.dimDot{width:10px;height:10px;border-radius:50%;background:#1f5a78;animation:dimpulse 3s ease-in-out infinite}
+@keyframes dimpulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.dimDot{animation:none}}
+header .btns{display:flex;gap:2px}
+#moon{background:none;border:0;color:var(--dim);padding:8px;border-radius:50%}
+#moon svg{width:22px;height:22px;display:block}
+#status{font-size:14px;color:var(--c);margin:0 0 14px;min-height:1.3em;text-align:center}
+#log{width:100%;max-width:560px;max-height:30vh;overflow-y:auto;font-size:16px;line-height:1.5}
+#log p{margin:0 0 10px}
+#log .me{color:var(--dim)}
+#log .ai{color:var(--ink)}
+#log .think{display:flex;align-items:center;height:1.5em}
+#log .think i{width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px;animation:dot 1s ease-in-out infinite}
+#log .think i:nth-child(2){animation-delay:.15s}
+#log .think i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1.15)}}
+@media (prefers-reduced-motion:reduce){#log .think i{animation:none;opacity:.8}}
+
+form{display:flex;gap:8px;padding:12px 16px 16px;max-width:600px;width:100%;margin:0 auto}
+#txt{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:22px;padding:12px 16px;font-size:16px;outline-offset:2px}
+#send{background:var(--c);color:#04111d;border:0;border-radius:22px;padding:0 20px;font-weight:600;font-size:15px}
+:focus-visible{outline:2px solid var(--c)}
+
+dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;width:min(92vw,420px);padding:20px;max-height:90vh;overflow-y:auto}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h2{font-size:17px;margin:0 0 14px}
+dialog label{display:block;font-size:14px;color:var(--dim);margin:12px 0 5px}
+#modelBox[hidden]{display:none}
+dialog input[type=password],dialog input[type=text],dialog select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px;font-size:16px}
+.chk{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px;margin-top:14px}
+.chk input{margin-top:3px;width:18px;height:18px}
+.hint{font-size:13px;color:var(--dim);margin:6px 0 0;line-height:1.4}
+.row{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.row button{border-radius:10px;border:1px solid var(--line);background:none;color:var(--ink);padding:10px 16px;font-size:15px}
+.row .go{background:var(--arc);color:#04111d;border-color:var(--arc);font-weight:600}
+</style>
+</head>
+<body data-s="idle">
+<header>
+  <h1>JARVIS</h1>
+  <div class="btns">
+  <button id="moon" aria-label="Pantalla oscura, sigue escuchando">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+  <button id="gear" aria-label="Ajustes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+  </div>
+</header>
+
+<main>
+  <div id="orbWrap">
+    <button id="orb" aria-label="Hablar con Jarvis">
+      <svg id="face" viewBox="0 0 200 200" aria-hidden="true">
+        <line class="stem" x1="100" y1="40" x2="100" y2="24"/>
+        <circle class="bulb" cx="100" cy="18" r="7"/>
+        <rect class="ear" x="5" y="88" width="16" height="38" rx="8"/>
+        <rect class="ear" x="179" y="88" width="16" height="38" rx="8"/>
+        <rect class="head" x="18" y="40" width="164" height="134" rx="48"/>
+        <rect class="screen" x="34" y="58" width="132" height="98" rx="34"/>
+        <circle class="cheek" cx="56" cy="128" r="8"/>
+        <circle class="cheek" cx="144" cy="128" r="8"/>
+        <g class="gaze"><g class="eyes">
+          <ellipse class="eye" cx="76" cy="100" rx="13" ry="18"/>
+          <ellipse class="eye" cx="124" cy="100" rx="13" ry="18"/>
+          <circle class="spark" cx="81" cy="92" r="4.5"/>
+          <circle class="spark" cx="129" cy="92" r="4.5"/>
+        </g></g>
+        <path class="mouth" d="M84 127 Q100 145 116 127"/>
+        <ellipse class="talk" cx="100" cy="133" rx="11" ry="8"/>
+      </svg>
+    </button>
+  </div>
+  <p id="status" aria-live="polite">Toca el círculo para activar a Jarvis</p>
+  <div id="log"></div>
+</main>
+
+<div class="talkWrap">
+  <button id="talk" aria-label="Activar o detener a Jarvis">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="t-halo" cx="50" cy="50" r="48"/>
+      <circle class="t-ticks" cx="50" cy="50" r="43"/>
+      <circle class="t-seg" cx="50" cy="50" r="34"/>
+      <circle class="t-plate" cx="50" cy="50" r="25"/>
+      <circle class="t-core" cx="50" cy="50" r="17"/>
+      <path class="t-tri" d="M50 40 L59 56 L41 56 Z"/>
+    </svg>
+  </button>
+  <span id="talkLbl">ACTIVAR</span>
+</div>
+
+<form id="form" autocomplete="off">
+  <input id="txt" type="text" placeholder="O escribe aquí" aria-label="Mensaje">
+  <button id="send" type="submit">Enviar</button>
+</form>
+
+<div id="dim" hidden>
+  <div class="dimDot"></div>
+  <p id="dimTxt">Escuchando…</p>
+  <span>Toca la pantalla para volver</span>
+</div>
+
+<dialog id="dlg">
+  <h2>Ajustes</h2>
+  <label for="prov">Cerebro</label>
+  <select id="prov">
+    <option value="free">LLM7 (gratis)</option>
+    <option value="groq">Groq (gratis, con clave)</option>
+    <option value="claude">Claude (con tu clave)</option>
+  </select>
+  <label for="key" id="keyLabel">Clave</label>
+  <input id="key" type="password" autocomplete="off">
+  <p class="hint" id="keyHint"></p>
+  <div id="modelBox">
+    <label for="model">Modelo de Claude</label>
+    <select id="model">
+      <option value="claude-sonnet-5-5">Sonnet 5.5 (equilibrado)</option>
+      <option value="claude-haiku-5-5">Haiku 5.5 (más rápido)</option>
+      <option value="claude-opus-5-5">Opus 5.5 (más potente)</option>
+    </select>
+  </div>
+  <label for="uname">¿Cómo te llamo?</label>
+  <input id="uname" type="text" autocomplete="off" placeholder="señor">
+  <label class="chk" id="ovlRow"><input id="ovl" type="checkbox"><span>Burbuja flotante sobre otras apps<br><span class="hint">Jarvis queda arriba en segundo plano: toca la burbuja para volver y arrástrala donde quieras. Necesita el permiso “Mostrar sobre otras apps”, que también le permite abrir apps y canciones desde el fondo.</span></span></label>
+  <label class="chk"><input id="wake" type="checkbox"><span>Responder solo cuando diga “Jarvis”<br><span class="hint">Lo oye en cualquier parte de la frase: “Jarvis, ¿qué hora es?” o “¿qué hora es, Jarvis?”. Si solo dices “Jarvis”, te responde “Dime” y espera tu pregunta.</span></span></label>
+  <label class="chk" id="bgRow"><input id="bg" type="checkbox"><span>Mantener activo en segundo plano<br><span class="hint">Muestra un control de medios en las notificaciones y reintenta escuchar al volver.</span></span></label>
+  <label class="chk"><input id="auto" type="checkbox"><span>Empezar a escuchar al abrir<br><span class="hint">Funciona cuando ya diste permiso al micrófono.</span></span></label>
+  <div class="row"><button id="clear" type="button">Borrar chat</button><button id="save" class="go" type="button">Guardar</button></div>
+</dialog>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const body = document.body, statusEl = $('status'), logEl = $('log'), dlg = $('dlg');
+
+  /* ---------- modo app Android: voz y segundo plano nativos ---------- */
+  const NATIVE = !!window.AndroidJarvis;
+  const RESTART = NATIVE ? 250 : 60;
+
+  // Imita a webkitSpeechRecognition, pero escucha con el servicio nativo de Android.
+  class NativeRec {
+    constructor(){ this.lang = 'es-419'; }
+    start(){ window.__recCur = this; AndroidJarvis.recStart(this.lang); }
+    stop(){ AndroidJarvis.recStop(); }
+    abort(){ AndroidJarvis.recAbort(); }
+  }
+  window.__rec = (type, p) => {
+    const r = window.__recCur; if (!r) return;
+    p = p || {};
+    if (type === 'start'){ if (r.onstart) r.onstart(); }
+    else if (type === 'result'){
+      const res = [{ transcript: p.text }]; res.isFinal = !!p.final;
+      if (r.onresult) r.onresult({ results: [res] });
+    }
+    else if (type === 'error'){ if (r.onerror) r.onerror({ error: p.error }); }
+    else if (type === 'end'){ if (r.onend) r.onend(); }
+  };
+  let ttsSeq = 0;
+
+  /* ---------- estado y ajustes ---------- */
+  const store = {
+    get(k, d){ try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+    set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+  };
+  let cfg = {
+    provider: store.get('jv_provider', 'free'),
+    keys: { free: store.get('jv_key_free', ''), groq: store.get('jv_key_groq', ''), claude: store.get('jv_key', '') },
+    model: store.get('jv_model', 'claude-sonnet-5-5'),
+    wake: store.get('jv_wake', '1') === '1',   // activado por defecto
+    bg: store.get('jv_bg', '1') === '1',
+    auto: store.get('jv_auto', '0') === '1',
+    name: store.get('jv_name', 'señor'),
+    ovl: store.get('jv_ovl', '1') === '1'      // burbuja flotante sobre otras apps
+  };
+  const U = () => (cfg.name || 'señor').trim();
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const norm = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const ovl = (state, text) => { if (NATIVE){ try { AndroidJarvis.overlay(state, text || ''); } catch {} } };
+  let followUntil = 0;
+  let history = [];
+  const ready = () => cfg.provider === 'free' || !!cfg.keys[cfg.provider];
+  let active = false;     // modo conversación continua
+  let busy = false;       // pensando o hablando
+  let starting = false;   // arrancando el reconocimiento
+  let wakeLock = null;
+  let keepAudio = null;   // audio silencioso (solo versión web)
+  let bgTimer = null;
+
+  let lookupCtx = '';
+  const SYSTEM = () =>
+    'Eres J.A.R.V.I.S., el mayordomo digital y asistente personal por voz del usuario, al estilo del de Tony Stark. ' +
+    'Hablas siempre en español y te diriges al usuario como "' + U() + '". ' +
+    'Personalidad: elegante, sereno, leal y muy competente, con humor seco y un sarcasmo fino y cariñoso (nunca hiriente). ' +
+    'Cuando haya ocasión, suelta una ocurrencia breve e ingeniosa; si el usuario hace algo arriesgado o absurdo, coméntalo con ironía elegante. ' +
+    'Usa con moderación y sin repetir siempre las mismas fórmulas como "A sus órdenes", "Por supuesto", "Enseguida", "Me temo que…", "Con gusto", "Como usted ordene". ' +
+    'Empieza siempre por lo importante: primero la respuesta, después el ingenio. ' +
+    'Tus respuestas se leen en voz alta: máximo 3 frases cortas, sin markdown, sin listas, sin emojis. ' +
+    'Puedes abrir aplicaciones y reproducir canciones en el teléfono. Normalmente el sistema lo hace antes de que te llegue el mensaje; ' +
+    'si el usuario pide abrir una app o poner una canción y aun así te llega a ti, confirma con estilo y añade AL FINAL una etiqueta ' +
+    '[[ABRIR:nombre de la app]] o [[MUSICA:canción y artista]] (la etiqueta no se lee en voz alta). Nunca digas que no puedes abrir apps ni poner música. ' +
+    'Si no entiendes algo, pide que lo repita. Fecha y hora actual: ' + new Date().toLocaleString('es') + '. ' +
+    'Tu conocimiento tiene fecha de corte y puede estar desactualizado: nunca afirmes que algo no existe solo porque no lo conoces; ' +
+    'si no estás seguro de algo reciente, dilo con honestidad y comparte lo que sí sepas. ' +
+    (lookupCtx
+      ? 'Información de Wikipedia obtenida ahora mismo; si trata del tema de la pregunta, úsala antes que tu memoria y ' +
+        'cuida que sea la película, persona o tema correcto:\n' + lookupCtx
+      : '');
+
+  /* ---------- información actual (Wikipedia, gratis y sin clave) ---------- */
+  const STOP = new Set(('el la los las un una unos unas de del al a en y o u que qué cuando cuándo como cómo donde dónde quien quién ' +
+    'cual cuál cuales cuáles cuanto cuánto cuantos cuántos es son fue era sale salen salió sabes sabe dime dices puedes podrías por para ' +
+    'con sin sobre mi me te se lo le les su sus tu tus esa ese esto eso esta este hay ha han fecha día dia jarvis oye hola favor ' +
+    'película pelicula serie estreno estrena saldrá').split(' '));
+  function needsLookup(t){
+    return t.length >= 12 && /\b(cu[aá]ndo|qui[eé]n|cu[aá]nt[oa]s?|d[oó]nde|cu[aá]l(es)?|qu[eé] (es|fue|son)|pel[ií]cula|serie|estren|sale|sali[oó]|[uú]ltim|nuev[oa]|gan[oó]|campe[oó]n|precio|noticia|actor|actriz|cantante|videojuego|partido|fecha|lanz)/i.test(t);
+  }
+  function keywords(t){
+    return t.toLowerCase().replace(/[¿?¡!.,;:"“”()]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w));
+  }
+  function parseWiki(d){
+    return Object.values(d?.query?.pages || {})
+      .sort((a, b) => (a.index || 0) - (b.index || 0))
+      .filter(p => p.extract)
+      .map(p => p.title + ': ' + p.extract.replace(/\s+/g, ' ').trim());
+  }
+  async function wikiSearch(lang, q){
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 3000);
+    try {
+      const url = 'https://' + lang + '.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1' +
+        '&generator=search&gsrlimit=3&prop=extracts&exintro=1&explaintext=1&exchars=600&gsrsearch=' + encodeURIComponent(q);
+      const r = await fetch(url, { signal: c.signal });
+      if (!r.ok) return [];
+      return parseWiki(await r.json());
+    } catch { return []; }
+    finally { clearTimeout(t); }
+  }
+  async function wikiContext(text){
+    if (!needsLookup(text)) return '';
+    const q = keywords(text).join(' ');
+    if (!q) return '';
+    const [es, en] = await Promise.all([wikiSearch('es', q), wikiSearch('en', q)]);
+    return [...es.slice(0, 2), ...en.slice(0, 2)].join('\n').slice(0, 2400);
+  }
+
+  const idleText = () => cfg.wake ? 'Toca el círculo para activar a Jarvis' : 'Toca el círculo para hablar';
+  function setState(s, text){
+    body.dataset.s = s;
+    $('talkLbl').textContent = s === 'idle' ? 'ACTIVAR' : 'DETENER';
+    if (text !== undefined) $('dimTxt').textContent = text;
+    if (text !== undefined) statusEl.textContent = text;
+    ovl(s, '');
+    if (s === 'error') stopBg();
+  }
+  function addLine(cls, text){
+    const p = document.createElement('p');
+    p.className = cls; p.textContent = text;
+    logEl.appendChild(p); logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.children.length > 8) logEl.removeChild(logEl.firstChild);
+    return p;
+  }
+  function addThinking(){
+    const p = document.createElement('p');
+    p.className = 'ai think'; p.setAttribute('aria-label', 'Pensando');
+    p.innerHTML = '<i></i><i></i><i></i>';
+    logEl.appendChild(p); logEl.scrollTop = logEl.scrollHeight;
+    return p;
+  }
+
+  /* ---------- segundo plano ---------- */
+  // App Android: servicio en primer plano (notificación fija, micrófono y CPU activos).
+  // Web: audio silencioso + control de medios (funciona a medias).
+  function silentWav(){
+    const sr = 8000, n = sr;
+    const b = new ArrayBuffer(44 + n), v = new DataView(b);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    w(36, 'data'); v.setUint32(40, n, true); new Uint8Array(b, 44).fill(128);
+    return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+  }
+  function startBg(){
+    if (NATIVE){
+      if (AndroidJarvis.hasMic()) AndroidJarvis.service(true);
+    } else {
+      if (!cfg.bg) return;
+      try {
+        if (!keepAudio){ keepAudio = new Audio(silentWav()); keepAudio.loop = true; keepAudio.volume = 0.02; }
+        keepAudio.play().catch(() => {});
+      } catch {}
+      try {
+        if ('mediaSession' in navigator){
+          navigator.mediaSession.metadata = new MediaMetadata({ title: 'Jarvis escuchando', artist: 'Di “Jarvis” en cualquier momento' });
+          navigator.mediaSession.playbackState = 'playing';
+          navigator.mediaSession.setActionHandler('pause', () => { if (active || busy) toggleTalk(); });
+          navigator.mediaSession.setActionHandler('stop', () => { if (active || busy) toggleTalk(); });
+          navigator.mediaSession.setActionHandler('play', () => { if (!active && !busy) toggleTalk(); });
+        }
+      } catch {}
+    }
+    clearInterval(bgTimer);
+    // vigilante: si la escucha se cortó la reactiva
+    bgTimer = setInterval(() => {
+      if (active && !busy && !recRunning && !starting) listen();
+    }, 2500);
+  }
+  function stopBg(){
+    clearInterval(bgTimer); bgTimer = null;
+    if (NATIVE){ try { AndroidJarvis.service(false); } catch {} return; }
+    try { keepAudio && keepAudio.pause(); } catch {}
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'; } catch {}
+  }
+  // El servicio nativo avisa si se detuvo (botón "Detener" de la notificación o error)
+  window.__nativeStopped = () => { if (active || busy) toggleTalk(); };
+
+  /* ---------- reconocimiento de voz ---------- */
+  const SR = NATIVE ? NativeRec : (window.SpeechRecognition || window.webkitSpeechRecognition);
+  let rec = null, recRunning = false;
+
+  const LANGS = ['es-419', 'es-US', 'es-ES'];
+  let langIdx = 0, micGranted = false, watchdog = null;
+
+  function envProblem(){
+    if (NATIVE) return '';
+    if (!window.isSecureContext)
+      return 'Abre Jarvis desde una dirección https, no como archivo. Súbelo a Netlify o GitHub Pages.';
+    if (/; wv\)|FBAN|FBAV|Instagram|MicroMessenger|Line\/|Telegram/i.test(navigator.userAgent))
+      return 'Estás en un navegador interno de otra app. Copia la dirección y ábrela en Chrome.';
+    if (!SR) return 'Este navegador no soporta voz. Usa Chrome en Android.';
+    return '';
+  }
+
+  async function ensureMic(){
+    if (NATIVE){
+      if (AndroidJarvis.hasMic()) return true;
+      return new Promise(res => {
+        window.__micResult = ok => {
+          if (!ok) setState('error', 'Permiso de micrófono denegado. Actívalo en Ajustes del teléfono → Apps → Jarvis → Permisos.');
+          res(ok);
+        };
+        AndroidJarvis.askMic();
+      });
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+      st.getTracks().forEach(t => t.stop());
+      return true;
+    } catch (e){
+      if (e.name === 'NotFoundError') setState('error', 'No encuentro un micrófono en este dispositivo.');
+      else if (e.name === 'NotReadableError') setState('error', 'Otra app está usando el micrófono. Ciérrala e intenta de nuevo.');
+      else setState('error', 'Micrófono bloqueado. Toca el candado junto a la dirección → Permisos → Micrófono → Permitir.');
+      return false;
+    }
+  }
+
+  const WAKE = /\b(jarvis|jarvi|jarbis|jarbi|yarvis|yarbis|yarvi|harvis|javis|jarvin|jarviz|yarviz|llarvis|garvis|charvis|yarbi|jarvys|jervis|gervis)\b/i;
+
+  function listen(){
+    if (busy || recRunning || starting) return;
+    rec = new SR();
+    rec.lang = LANGS[langIdx % LANGS.length];
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    let heard = '', errored = false, silence = null;
+    starting = true;
+    rec.onstart = () => {
+      starting = false; recRunning = true; clearTimeout(watchdog);
+      setState('listening', cfg.wake ? 'Esperando: di “Jarvis…”' : 'Te escucho…');
+    };
+    rec.onresult = e => {
+      const r = e.results[e.results.length - 1];
+      heard = r[0].transcript.trim();
+      if (heard) statusEl.textContent = '“' + heard + '”';
+      clearTimeout(silence);
+      const waitingWake = cfg.wake && !WAKE.test(heard) && Date.now() >= followUntil;
+      silence = setTimeout(() => { try { rec.stop(); } catch {} }, r.isFinal ? 200 : (waitingWake ? 1400 : 750));
+    };
+    rec.onerror = e => {
+      starting = false; recRunning = false;
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      if (e.error === 'language-not-supported'){ langIdx++; return; }
+      errored = true; active = false; clearTimeout(watchdog);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        micGranted = false;
+        setState('error', NATIVE
+          ? 'No hay reconocimiento de voz disponible o falta el permiso del micrófono. Instala/activa la app Google y revisa los permisos de Jarvis.'
+          : 'Micrófono bloqueado. Toca el candado junto a la dirección → Permisos → Micrófono → Permitir.');
+      } else if (e.error === 'audio-capture'){
+        setState('error', 'No detecto micrófono. Revisa que otra app no lo esté usando.');
+      } else if (e.error === 'network'){
+        setState('error', 'El reconocimiento de voz necesita internet.');
+      } else {
+        setState('error', 'Falló el micrófono (' + e.error + '). Toca para intentar de nuevo.');
+      }
+    };
+    rec.onend = () => {
+      starting = false; recRunning = false; clearTimeout(watchdog); clearTimeout(silence);
+      if (errored) return;
+      if (heard) return onHeard(heard);
+      if (active && !busy) setTimeout(listen, RESTART);
+      else if (!busy) setState('idle', idleText());
+    };
+    try { rec.start(); }
+    catch (e){
+      starting = false;
+      if (e && e.name === 'InvalidStateError') return;
+      active = false; setState('error', 'No pude iniciar el micrófono. Toca de nuevo.');
+      return;
+    }
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      if (!recRunning && active && !busy){
+        starting = false;
+        if (document.visibilityState === 'hidden') return;
+        active = false; stopListening();
+        setState('error', 'El micrófono no se activó. Toca de nuevo y acepta el permiso.');
+      }
+    }, 6000);
+  }
+  function stopListening(){ try { rec && rec.abort(); } catch {} recRunning = false; starting = false; }
+
+  function onHeard(text){
+    if (cfg.wake){
+      const hit = WAKE.test(text);
+      if (!hit && Date.now() >= followUntil){ if (active) setTimeout(listen, RESTART); return; }
+      if (hit){
+        text = text.replace(new RegExp(WAKE.source, 'ig'), ' ').replace(/\s+/g, ' ').replace(/,\s*,/g, ',')
+                   .replace(/^[\s,.:;¡!¿?-]+|[\s,.:;¡!¿?-]+$/g, '').trim();
+        if (!text){
+          busy = true; stopListening(); cancelSpeech();
+          setState('speaking', 'Dime…');
+          enqueueSpeech(pick(['A sus órdenes.', 'Dígame, ' + U() + '.', 'Aquí estoy, ' + U() + '.', 'Lo escucho, ' + U() + '.', 'Al habla, ' + U() + '.']));
+          speechDone().then(() => {
+            busy = false; followUntil = Date.now() + 12000;
+            if (active) listen(); else setState('idle', idleText());
+          });
+          return;
+        }
+      }
+    }
+    ask(text);
+  }
+
+
+  /* ---------- órdenes del teléfono: abrir apps, poner canciones, controlar la música ---------- */
+  const FILLER = /\b(jarvis|oye|hola|por favor|porfa|porfavor|pues|ok|vale|puedes|puedo|podrias|podria|me puedes|me podrias|quiero que|necesito que|ahora|ya|mismo|dale)\b/g;
+  function parseCommand(text){
+    let n = norm(text).replace(FILLER, ' ').replace(/\s+/g, ' ').trim();
+    if (!n) return null;
+    let m;
+    // control de la música que ya suena
+    if (/^(pausa|pausar|pausalo|pausala|pon pausa|para la musica|parar la musica|deten la musica|detener la musica|silencio la musica)( .*)?$/.test(n)) return { type: 'media', act: 'pause' };
+    if (/^(continua|continuar|reanuda|reanudar|sigue|seguir|reproduce|play|dale play|pon play)( la musica| la cancion)?$/.test(n)) return { type: 'media', act: 'play' };
+    if (/^(siguiente|proxima|salta|saltar|pasa|pasar|cambia|cambiar)( de)?( la)?( cancion| tema| musica)?( siguiente)?$/.test(n) || /^(cancion|tema) siguiente$/.test(n)) return { type: 'media', act: 'next' };
+    if (/^(anterior|cancion anterior|tema anterior|vuelve atras|atras|retrocede)( .*)?$/.test(n)) return { type: 'media', act: 'prev' };
+    if (/^(sube|subir|aumenta|aumentar|mas)( el)? volumen/.test(n)) return { type: 'media', act: 'vol_up' };
+    if (/^(baja|bajar|disminuye|reduce|menos)( el)? volumen/.test(n)) return { type: 'media', act: 'vol_down' };
+
+    // canciones
+    if ((m = n.match(/^(?:pon|poner|ponme|ponga|reproduce|reproducir|reproduceme|toca|tocar|escuchar|quiero escuchar|quiero oir|play|busca|buscame)\s+(.+)$/))){
+      let q = m[1];
+      if (!/^(una |un |el |la )?(alarma|temporizador|timer|recordatorio|despertador|cronometro)/.test(q) &&
+          !(/^busca/.test(n) && !/ en (spotify|youtube|you tube|youtube music|yt music)$/.test(n))){
+        let app = '';
+        const a = q.match(/\s+(?:en|por|con|desde)\s+(spotify|youtube music|yt music|ytmusic|youtube|you tube|yutub)$/);
+        if (a){ app = a[1]; q = q.slice(0, a.index); }
+        q = q.replace(/^(la |el |una |un |algo de |algo del |mas de |de )?(cancion|canciones|tema|temas|musica|rola|video|videoclip|clip)?( de| del| llamada| llamado| que se llama)? /, m2 => m2 === q ? '' : '').trim();
+        if (/^(musica|algo|algo de musica|cancion|canciones|una cancion)$/.test(q)) q = '';
+        q = q.replace(/^(la |el )?(cancion|tema) (de |del )?/, '').trim();
+        return { type: 'music', query: q, app };
+      }
+    }
+
+    // abrir apps
+    if ((m = n.match(/^(?:abre|abrir|abreme|abrime|abra|abrirme|lanza|lanzar|inicia|iniciar|ejecuta|ejecutar|arranca|arrancar|entra a|entra en|entrar a|entrar en|enciende)\s+(?:(?:la|el|mi|las|los|una|un|app|aplicacion|apps|de|a|en)\s+)*(.+)$/))){
+      let name = m[1].replace(/\s+(por favor|ahora|ya)$/, '').trim();
+      if (name) return { type: 'open', name };
+    }
+    return null;
+  }
+
+  const bgNow = () => { try { return NATIVE && !AndroidJarvis.isForeground(); } catch { return false; } };
+  async function runCommand(c){
+    if (!NATIVE) return 'Me temo que eso solo puedo hacerlo desde la app de Android, ' + U() + '.';
+    const needPerm = bgNow() && !AndroidJarvis.hasOverlay();
+    const permMsg = 'Me temo que no puedo abrir nada desde el fondo sin el permiso de mostrarme sobre otras aplicaciones, ' + U() + '. Se lo dejo a un toque en los ajustes.';
+    if (c.type === 'media'){
+      let r = {}; try { r = JSON.parse(AndroidJarvis.media(c.act)); } catch {}
+      if (!r.ok) return 'No logro controlar el reproductor, ' + U() + '.';
+      return { pause: pick(['Pausado.', 'Silencio, entonces.']), play: pick(['Continuamos.', 'Reanudando.']),
+               next: pick(['Siguiente.', 'Pasamos a la siguiente.']), prev: pick(['Volvemos atrás.', 'Anterior.']),
+               vol_up: pick(['Subiendo el volumen.', 'Más volumen, ' + U() + '.']), vol_down: pick(['Bajando el volumen.', 'Un poco más discreto.']) }[c.act];
+    }
+    if (c.type === 'open'){
+      if (needPerm){ setTimeout(() => { try { AndroidJarvis.askOverlay(); } catch {} }, 2500); return permMsg; }
+      let r = {}; try { r = JSON.parse(AndroidJarvis.openApp(c.name)); } catch {}
+      if (r.ok) return pick(['Abriendo ' + r.label + ', ' + U() + '.', 'Enseguida. ' + r.label + ' en pantalla.', 'Como ordene. ' + r.label + ' listo.', 'Hecho. ' + r.label + ', ' + U() + '.']);
+      if (r.err === 'blocked') return 'El sistema no me deja abrir ' + c.name + ' ahora mismo, ' + U() + '. Android tiene sus caprichos.';
+      return 'No encuentro ninguna aplicación llamada ' + c.name + ', ' + U() + '. ¿Está seguro de que la tiene instalada?';
+    }
+    return '';
+  }
+  // La música se pide DESPUÉS de hablar, para que mi voz no compita con la canción.
+  function musicLine(c){
+    const what = c.query ? c.query : 'su música';
+    return pick(['Excelente elección. Reproduciendo ' + what + '.', 'Enseguida, ' + U() + '. ' + (c.query ? 'Poniendo ' + what + '.' : 'Abriendo la música.'),
+                 'Subiendo el volumen de su vida con ' + what + '.', 'Como ordene. ' + what + ' en marcha.']);
+  }
+  function runMusic(c){
+    if (!NATIVE) return 'Eso solo puedo hacerlo desde la app de Android, ' + U() + '.';
+    if (bgNow() && !AndroidJarvis.hasOverlay()){ setTimeout(() => { try { AndroidJarvis.askOverlay(); } catch {} }, 2500); return 'Me temo que sin el permiso de mostrarme sobre otras aplicaciones no puedo poner música desde el fondo, ' + U() + '.'; }
+    let r = {}; try { r = JSON.parse(AndroidJarvis.playSong(c.query, c.app)); } catch {}
+    if (r.ok) return '';
+    return 'No encuentro ningún reproductor de música instalado, ' + U() + '. Instale Spotify o YouTube Music y yo me encargo del resto.';
+  }
+
+  async function handleCommand(text, c){
+    const my = ++gen;
+    busy = true; stopListening(); cancelSpeech();
+    addLine('me', text);
+    let line = '', after = '';
+    if (c.type === 'music'){
+      line = musicLine(c);
+      history.push({ role: 'user', content: text }, { role: 'assistant', content: line });
+      setState('speaking', 'Hablando…'); addLine('ai', line); ovl('speaking', line);
+      enqueueSpeech(line);
+      await speechDone();
+      if (my !== gen) return;
+      after = runMusic(c);
+    } else {
+      line = await runCommand(c);
+      if (my !== gen) return;
+      history.push({ role: 'user', content: text }, { role: 'assistant', content: line });
+      setState('speaking', 'Hablando…'); addLine('ai', line); ovl('speaking', line);
+      enqueueSpeech(line);
+      await speechDone();
+      if (my !== gen) return;
+    }
+    if (after){
+      addLine('ai', after); ovl('speaking', after); enqueueSpeech(after);
+      await speechDone();
+      if (my !== gen) return;
+    }
+    busy = false;
+    if (cfg.wake) followUntil = Date.now() + 10000;
+    if (active) listen(); else setState('idle', idleText());
+  }
+
+  // Órdenes que el cerebro (IA) añade como etiqueta al final de su respuesta
+  function runTags(raw){
+    if (!NATIVE) return;
+    for (const m of raw.matchAll(/\[\[(ABRIR|MUSICA):([^\]]+)\]\]/g)){
+      try {
+        if (m[1] === 'ABRIR') AndroidJarvis.openApp(m[2].trim());
+        else AndroidJarvis.playSong(m[2].trim(), '');
+      } catch {}
+    }
+  }
+
+  /* ---------- voz de salida ---------- */
+  let voice = null;
+  function pickVoice(){
+    const vs = speechSynthesis.getVoices();
+    voice = vs.find(v => /^es[-_](419|MX|US)/i.test(v.lang)) || vs.find(v => /^es/i.test(v.lang)) || null;
+  }
+  if (!NATIVE && 'speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+  let spQ = [], spBusy = false, spGen = 0, spWaiters = [];
+  function flushWaiters(){ const w = spWaiters; spWaiters = []; w.forEach(f => f()); }
+  function enqueueSpeech(t){
+    const c = t.replace(/[*#_`>~]/g, '').replace(/\s+/g, ' ').trim();
+    if (c){ spQ.push(c); pumpSpeech(); }
+  }
+  function pumpSpeech(){
+    if (spBusy) return;
+    const t = spQ.shift();
+    if (!t){ flushWaiters(); return; }
+    if (NATIVE){
+      spBusy = true;
+      const g = spGen;
+      let finished = false;
+      const done = () => { if (finished || g !== spGen) return; finished = true; spBusy = false; pumpSpeech(); };
+      const id = ++ttsSeq;
+      window.__ttsDone = i => { if (i === id) done(); };
+      setTimeout(done, t.length * 110 + 4000);
+      AndroidJarvis.speak(String(id), t);
+      return;
+    }
+    if (!('speechSynthesis' in window)){ spQ = []; flushWaiters(); return; }
+    spBusy = true;
+    const g = spGen;
+    let finished = false;
+    const done = () => { if (finished || g !== spGen) return; finished = true; spBusy = false; pumpSpeech(); };
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = voice ? voice.lang : 'es-419';
+    if (voice) u.voice = voice;
+    u.rate = 1.05;
+    u.onend = done; u.onerror = done;
+    setTimeout(done, t.length * 110 + 4000);
+    speechSynthesis.speak(u);
+  }
+  function speechDone(){
+    return new Promise(res => { if (!spBusy && !spQ.length) res(); else spWaiters.push(res); });
+  }
+  function cancelSpeech(){
+    spGen++; spQ = []; spBusy = false; flushWaiters();
+    if (NATIVE){ try { AndroidJarvis.stopSpeak(); } catch {} return; }
+    try { speechSynthesis.cancel(); } catch {}
+  }
+
+  /* ---------- cerebros compatibles con OpenAI: LLM7 y Groq ---------- */
+  const PROV = {
+    free: { base: 'https://api.llm7.io/v1', name: 'LLM7' },
+    groq: { base: 'https://api.groq.com/openai/v1', name: 'Groq' }
+  };
+  function timed(url, opts){
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 20000);
+    return fetch(url, { ...opts, signal: c.signal }).finally(() => clearTimeout(t));
+  }
+  async function readSSE(r, onData){
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;){
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0){
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith('data:')) continue;
+        const d = line.slice(5).trim();
+        if (d === '[DONE]') return;
+        try { onData(JSON.parse(d)); } catch {}
+      }
+    }
+  }
+  async function listModels(base, key){
+    const r = await timed(base + '/models', { headers: { authorization: 'Bearer ' + key } });
+    if (!r.ok) throw new Error('lista de modelos HTTP ' + r.status);
+    const d = await r.json();
+    const ids = (Array.isArray(d) ? d : d.data || []).map(m => typeof m === 'string' ? m : m.id).filter(Boolean);
+    const chat = ids.filter(id => !/embed|whisper|tts|image|dall|flux|sdxl|stable|moderation|rerank|guard|orpheus|playai/i.test(id));
+    const fast = chat.filter(id => /instant|nano|mini|fast|flash|small|lite|8b/i.test(id));
+    return [...new Set([...fast, ...chat])];
+  }
+  async function viaOpenAI(onDelta){
+    const P = PROV[cfg.provider];
+    const key = cfg.keys[cfg.provider] || 'unused';
+    const ck = 'jv_model_' + cfg.provider;
+    const tried = [];
+    let queue = store.get(ck, '') ? [store.get(ck, '')] : [];
+    let lastErr = 'sin modelos disponibles';
+    for (let round = 0; round < 2; round++){
+      if (!queue.length){
+        queue = (await listModels(P.base, key)).filter(m => !tried.includes(m)).slice(0, 6);
+        if (!queue.length) break;
+      }
+      for (const model of queue){
+        tried.push(model);
+        try {
+          const r = await timed(P.base + '/chat/completions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+            body: JSON.stringify({
+              model, max_tokens: 400, stream: true,
+              messages: [{ role: 'system', content: SYSTEM() }, ...history.slice(-20)]
+            })
+          });
+          if (!r.ok){
+            const data = await r.json().catch(() => ({}));
+            const err = new Error(data?.error?.message || data?.detail || ('HTTP ' + r.status));
+            err.status = r.status; throw err;
+          }
+          let t = '';
+          if (/event-stream/i.test(r.headers.get('content-type') || '')){
+            await readSSE(r, j => { const d = j.choices?.[0]?.delta?.content; if (d){ t += d; onDelta(d); } });
+          } else {
+            const data = await r.json().catch(() => ({}));
+            t = (data.choices?.[0]?.message?.content || '');
+            if (t) onDelta(t);
+          }
+          if (!t.trim()) throw new Error('respuesta vacía');
+          store.set(ck, model);
+          return t.trim();
+        } catch (e){
+          lastErr = P.name + ' (' + model + '): ' + (e.name === 'AbortError' ? 'tardó demasiado' : e.message);
+          if (e.name === 'AbortError' || e.status === 401 || e.status === 403) throw new Error(lastErr);
+        }
+      }
+      store.set(ck, ''); queue = [];
+    }
+    throw new Error(lastErr);
+  }
+
+  /* ---------- Claude ---------- */
+  async function viaClaude(onDelta){
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': cfg.keys.claude,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: cfg.model, max_tokens: 400, stream: true, system: SYSTEM(), messages: history.slice(-20) })
+    });
+    if (!r.ok){
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data?.error?.message || ('Error ' + r.status));
+    }
+    let t = '';
+    await readSSE(r, j => {
+      if (j.type === 'content_block_delta' && j.delta && j.delta.type === 'text_delta'){ t += j.delta.text; onDelta(j.delta.text); }
+    });
+    if (!t.trim()) throw new Error('respuesta vacía');
+    return t.trim();
+  }
+
+  function sentenceEnd(buf){
+    const re = /[.!?…]+\s+/g;
+    let m;
+    while ((m = re.exec(buf))){
+      const end = m.index + m[0].length;
+      if (buf.slice(0, end).trim().length >= 14) return end;
+    }
+    if (buf.length > 180){
+      const c = buf.lastIndexOf(', ');
+      if (c > 60) return c + 2;
+    }
+    return -1;
+  }
+  let gen = 0;
+  async function ask(text){
+    const cmd = parseCommand(text);
+    if (cmd){ await handleCommand(text, cmd); return; }
+    if (!ready()){ openSettings(); setState('error', 'Falta tu clave de API'); return; }
+    const my = ++gen;
+    busy = true; stopListening(); cancelSpeech();
+    addLine('me', text);
+    history.push({ role: 'user', content: text });
+    setState('thinking', needsLookup(text) ? 'Buscando información…' : 'Pensando…');
+    const dots = addThinking();
+    lookupCtx = '';
+    try { lookupCtx = await wikiContext(text); } catch { lookupCtx = ''; }
+    if (my !== gen) return;
+    setState('thinking', 'Pensando…');
+    let buf = '', shown = '', aiLine = null;
+
+    const emit = sentence => {
+      if (my !== gen) return;
+      if (!aiLine){ dots.remove(); aiLine = addLine('ai', ''); setState('speaking', 'Hablando…'); }
+      enqueueSpeech(sentence);
+      ovl('speaking', shown);
+    };
+    const flush = final => {
+      for (;;){
+        const e = sentenceEnd(buf);
+        if (e < 0) break;
+        emit(buf.slice(0, e)); buf = buf.slice(e);
+      }
+      if (final && buf.trim()){ emit(buf); buf = ''; }
+    };
+    let raw = '';
+    const onDelta = d => {
+      if (my !== gen) return;
+      raw += d;
+      // las etiquetas [[...]] no se muestran ni se leen en voz alta
+      let clean = raw.replace(/\[\[[\s\S]*?\]\]/g, '');
+      const k = clean.indexOf('[['); if (k >= 0) clean = clean.slice(0, k);
+      if (clean.endsWith('[')) clean = clean.slice(0, -1);
+      const add = clean.slice(shown.length);
+      if (!add) return;
+      shown = clean; buf += add;
+      if (aiLine){ aiLine.textContent = shown; logEl.scrollTop = logEl.scrollHeight; }
+      flush(false);
+      if (aiLine) aiLine.textContent = shown;
+    };
+
+    let reply;
+    try {
+      reply = cfg.provider !== 'claude' ? await viaOpenAI(onDelta) : await viaClaude(onDelta);
+      if (my !== gen) return;
+      flush(true);
+      const spoken = reply.replace(/\[\[[\s\S]*?\]\]/g, '').trim();
+      if (aiLine) aiLine.textContent = spoken;
+      history.push({ role: 'assistant', content: spoken });
+      await speechDone();
+      runTags(reply);
+    } catch (err){
+      if (my !== gen) return;
+      dots.remove(); cancelSpeech();
+      history.pop();
+      addLine('ai', 'No pude responder. Detalle: ' + err.message);
+      setState('error', 'Error de conexión o de clave');
+      busy = false; active = false;
+      return;
+    }
+    if (my !== gen) return;
+    busy = false;
+    if (cfg.wake) followUntil = Date.now() + 10000;
+    if (active) listen(); else setState('idle', idleText());
+  }
+
+  /* ---------- controles ---------- */
+  async function keepAwake(){
+    if (NATIVE) return;   // la app usa un bloqueo de CPU nativo; la pantalla puede apagarse
+    try { if ('wakeLock' in navigator && (!wakeLock || wakeLock.released)) wakeLock = await navigator.wakeLock.request('screen'); } catch {}
+  }
+  async function toggleTalk(){
+    if (active || busy){
+      active = false; busy = false; clearTimeout(watchdog);
+      gen++; stopListening(); cancelSpeech(); stopBg();
+      try { wakeLock && wakeLock.release(); } catch {}
+      setState('idle', idleText());
+      return;
+    }
+    if (!ready()){ openSettings(); return; }
+    const problem = envProblem();
+    if (problem){ setState('error', problem); return; }
+    active = true;
+    startBg();   // versión web: dentro del gesto del usuario para poder reproducir el audio
+    if (!micGranted){
+      setState('listening', 'Acepta el permiso del micrófono…');
+      if (!(await ensureMic())){ active = false; stopBg(); return; }
+      micGranted = true;
+      await new Promise(r => setTimeout(r, 250));
+      if (!active) return;
+    }
+    startBg();   // versión Android: el servicio solo arranca con el micrófono ya permitido
+    keepAwake();
+    greet();
+  }
+  function greeting(){
+    const h = new Date().getHours();
+    const t = h < 6 ? 'Trasnochando, ' + U() + '. Sistemas en línea.' : h < 13 ? 'Buenos días, ' + U() + '. Sistemas en línea.' : h < 20 ? 'Buenas tardes, ' + U() + '. Sistemas en línea.' : 'Buenas noches, ' + U() + '. Sistemas en línea.';
+    return t + ' ' + pick(['A sus órdenes.', 'Dígame qué necesita.', 'Hoy salvamos el mundo o solo el calendario.']);
+  }
+  async function greet(){
+    const my = ++gen;
+    busy = true; stopListening(); cancelSpeech();
+    const g = greeting();
+    setState('speaking', 'Sistemas en línea'); ovl('speaking', g);
+    enqueueSpeech(g);
+    // Primera vez: pedir el permiso para flotar sobre otras apps y abrir cosas desde el fondo
+    let askPerm = false;
+    if (NATIVE && cfg.ovl && !AndroidJarvis.hasOverlay() && store.get('jv_ovl_asked', '0') !== '1'){
+      store.set('jv_ovl_asked', '1'); askPerm = true;
+      enqueueSpeech('Para flotar sobre sus otras aplicaciones y abrirlas por usted necesito un permiso. Se lo muestro ahora.');
+    }
+    await speechDone();
+    if (my !== gen) return;
+    busy = false;
+    if (askPerm){ try { AndroidJarvis.askOverlay(); } catch {} }
+    if (cfg.wake) followUntil = Date.now() + 8000;
+    if (active) listen(); else setState('idle', idleText());
+  }
+  $('orb').addEventListener('click', toggleTalk);
+  $('talk').addEventListener('click', toggleTalk);
+  $('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = $('txt').value.trim();
+    if (!t || busy) return;
+    $('txt').value = '';
+    ask(t);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && active){
+      keepAwake();
+      if (!NATIVE && cfg.bg && keepAudio) keepAudio.play().catch(() => {});
+      if (!busy && !recRunning && !starting) setTimeout(listen, 200);
+    }
+  });
+
+  const TXT = {
+    free:   { label: 'Clave de LLM7', ph: 'Déjalo vacío para probar sin clave',
+              hint: 'LLM7 ya no suele aceptar uso anónimo. Crea una clave gratis en dash.llm7.io y pégala aquí.' },
+    groq:   { label: 'Clave de Groq', ph: 'gsk_...',
+              hint: 'Gratis y rápido. Crea tu clave con tu correo en console.groq.com/keys.' },
+    claude: { label: 'Clave de API de Anthropic', ph: 'sk-ant-...',
+              hint: 'Se guarda solo en este teléfono. Créala en console.anthropic.com.' }
+  };
+  let draft = {}, shown = null;
+  function syncProv(){
+    const p = $('prov').value;
+    if (shown) draft[shown] = $('key').value.trim();
+    shown = p;
+    $('key').value = draft[p] || '';
+    $('keyLabel').textContent = TXT[p].label; $('key').placeholder = TXT[p].ph; $('keyHint').textContent = TXT[p].hint;
+    $('modelBox').hidden = p !== 'claude';
+  }
+  $('prov').addEventListener('change', syncProv);
+  function openSettings(){
+    draft = { ...cfg.keys }; shown = null;
+    $('prov').value = cfg.provider; $('model').value = cfg.model;
+    $('wake').checked = cfg.wake; $('bg').checked = cfg.bg; $('auto').checked = cfg.auto;
+    $('uname').value = cfg.name; $('ovl').checked = cfg.ovl;
+    syncProv(); dlg.showModal();
+  }
+  $('gear').addEventListener('click', openSettings);
+  $('save').addEventListener('click', () => {
+    draft[$('prov').value] = $('key').value.trim();
+    cfg.keys = { free: draft.free || '', groq: draft.groq || '', claude: draft.claude || '' };
+    cfg.provider = $('prov').value; cfg.model = $('model').value;
+    cfg.wake = $('wake').checked; cfg.bg = $('bg').checked; cfg.auto = $('auto').checked;
+    cfg.name = $('uname').value.trim() || 'señor'; cfg.ovl = $('ovl').checked;
+    store.set('jv_name', cfg.name); store.set('jv_ovl', cfg.ovl ? '1' : '0');
+    if (NATIVE){
+      try {
+        AndroidJarvis.setOverlay(cfg.ovl);
+        if (cfg.ovl && !AndroidJarvis.hasOverlay()) AndroidJarvis.askOverlay();
+      } catch {}
+    }
+    store.set('jv_provider', cfg.provider); store.set('jv_model', cfg.model);
+    store.set('jv_wake', cfg.wake ? '1' : '0'); store.set('jv_bg', cfg.bg ? '1' : '0'); store.set('jv_auto', cfg.auto ? '1' : '0');
+    store.set('jv_key_free', cfg.keys.free); store.set('jv_key_groq', cfg.keys.groq); store.set('jv_key', cfg.keys.claude);
+    dlg.close();
+    if (active && !NATIVE){ cfg.bg ? startBg() : stopBg(); }
+    if (ready() && !active) setState('idle', idleText());
+  });
+  $('clear').addEventListener('click', () => { history = []; logEl.innerHTML = ''; dlg.close(); });
+
+  /* pantalla oscura (solo versión web): sigue escuchando con la pantalla negra */
+  $('moon').addEventListener('click', async () => {
+    if (!active && !busy) await toggleTalk();
+    if (active || busy) $('dim').hidden = false;
+  });
+  $('dim').addEventListener('click', () => { $('dim').hidden = true; });
+
+  if (NATIVE){
+    // En la app el servicio nativo ya mantiene todo activo: sobran estos controles
+    $('moon').style.display = 'none';
+    $('bgRow').style.display = 'none';
+  } else {
+    $('ovlRow').style.display = 'none';   // la burbuja solo existe en la app de Android
+  }
+
+  /* empezar solo al abrir (si ya hay permiso de micrófono) */
+  async function autoStart(){
+    if (!cfg.auto || !ready() || envProblem()) return;
+    if (NATIVE){
+      if (AndroidJarvis.hasMic()){ micGranted = true; toggleTalk(); }
+      else setState('idle', 'Toca ACTIVAR para empezar a escuchar');
+      return;
+    }
+    try {
+      const st = await navigator.permissions.query({ name: 'microphone' });
+      if (st.state === 'granted'){ micGranted = true; toggleTalk(); }
+      else setState('idle', 'Toca ACTIVAR para empezar a escuchar');
+    } catch { setState('idle', 'Toca ACTIVAR para empezar a escuchar'); }
+  }
+
+  if (envProblem()) setState('error', envProblem());
+  else if (!ready()) setState('idle', 'Toca ⚙ y pega tu clave de API');
+  else { setState('idle', idleText()); autoStart(); }
+})();
+</script>
+</body>
+</html>
