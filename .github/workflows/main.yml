@@ -11,18 +11,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Buscar el proyecto
+      - name: Abrir el .zip si lo subiste sin descomprimir
+        run: |
+          z=$(find . -maxdepth 3 -name "*.zip" -not -path "./.git/*" | head -1)
+          if [ -n "$z" ]; then
+            echo "Abriendo $z"
+            mkdir -p _from_zip && unzip -o -q "$z" -d _from_zip
+          else
+            echo "No hay .zip en el repo"
+          fi
+
+      - name: Buscar el proyecto (el de versión más nueva)
         id: find
         run: |
-          f=$(find . -name settings.gradle.kts -not -path "*/node_modules/*" | head -1)
-          if [ -z "$f" ]; then
-            echo "::error::No encuentro settings.gradle.kts. Archivos del repo:"
+          best=""; bestv=-1
+          for f in $(find . -name settings.gradle.kts -not -path "*/node_modules/*"); do
+            d=$(dirname "$f")
+            v=$(grep -oE 'versionCode *= *[0-9]+' "$d/app/build.gradle.kts" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)
+            echo "Encontrado: $d (versionCode ${v:-?})"
+            if [ -n "${v:-}" ] && [ "$v" -gt "$bestv" ]; then bestv=$v; best=$d; fi
+          done
+          if [ -z "$best" ]; then
+            echo "::error::No encuentro el proyecto. Archivos del repo:"
             ls -R | head -50
             exit 1
           fi
-          d=$(dirname "$f")
-          echo "Proyecto en: $d"
-          echo "dir=$d" >> "$GITHUB_OUTPUT"
+          echo "Usando: $best (versionCode $bestv)"
+          echo "dir=$best" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
