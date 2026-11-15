@@ -11,15 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Abrir el .zip si lo subiste sin descomprimir
+      - name: Abrir TODOS los .zip del repo
         run: |
-          z=$(find . -maxdepth 3 -name "*.zip" -not -path "./.git/*" | head -1)
-          if [ -n "$z" ]; then
+          find . -maxdepth 3 -name "*.zip" -not -path "./.git/*" -not -path "./_from_zip/*" | while read -r z; do
             echo "Abriendo $z"
-            mkdir -p _from_zip && unzip -o -q "$z" -d _from_zip
-          else
-            echo "No hay .zip en el repo"
-          fi
+            d="_from_zip/$(basename "$z" .zip)_$(date +%s%N)"
+            mkdir -p "$d" && unzip -o -q "$z" -d "$d"
+          done || true
 
       - name: Buscar el proyecto (el de versión más nueva)
         id: find
