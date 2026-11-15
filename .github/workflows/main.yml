@@ -8,11 +8,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: JarvisApp
     steps:
       - uses: actions/checkout@v4
+
+      - name: Buscar el proyecto
+        id: find
+        run: |
+          f=$(find . -name settings.gradle.kts -not -path "*/node_modules/*" | head -1)
+          if [ -z "$f" ]; then
+            echo "::error::No encuentro settings.gradle.kts. Archivos del repo:"
+            ls -R | head -50
+            exit 1
+          fi
+          d=$(dirname "$f")
+          echo "Proyecto en: $d"
+          echo "dir=$d" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
@@ -24,6 +34,7 @@ jobs:
           gradle-version: 8.7
 
       - name: Descargar motor de voz sherpa-onnx
+        working-directory: ${{ steps.find.outputs.dir }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -58,9 +69,10 @@ jobs:
           exit 1
 
       - name: Compilar APK
+        working-directory: ${{ steps.find.outputs.dir }}
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: Jarvis-apk
-          path: JarvisApp/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
